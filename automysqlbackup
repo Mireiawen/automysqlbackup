@@ -87,8 +87,8 @@ load_default_config() {
   CONFIG_backup_local_files=()
   CONFIG_db_names=()
   CONFIG_db_month_names=()
-  CONFIG_db_exclude=( 'information_schema' )
-  CONFIG_table_exclude=()
+  CONFIG_db_exclude=( 'information_schema' 'performance_schema' )
+  CONFIG_table_exclude=( 'mysql.general_log' 'mysql.slow_log' )
   CONFIG_mailcontent='stdout'
   CONFIG_mail_maxattsize=4000
   CONFIG_mail_splitandtar='yes'
@@ -444,7 +444,7 @@ parse_configuration () {
     mysql_opt=()
 
     # OPT string for use with mysqldump fullschema
-    opt_fullschema=( '--all-databases' '--routines' '--no-data' )
+    opt_fullschema=( '--all-databases' '--routines' '--no-data' '--lock-tables=0' )
 
 	# OPT string for use with mysqlstatus
 	opt_dbstatus=( '--status' )
@@ -1894,7 +1894,14 @@ method_backup () {
 			for db in "${CONFIG_db_month_names[@]}"; do
 			  echo "Monthly Backup of Database ( ${db} )"
 			  (shopt -s nullglob dotglob; f=("${CONFIG_backup_dir}/${subfolder}/${db}/${prefix}${db}_${date_stamp}_"[0-9][0-9]"h"[0-9][0-9]"m${midfix}${extension}${suffix}"); ((${#f[@]}))) && continue
+			  if [ "${db}" == 'mysql' ]; then
+				  old_opt=( "${opt[@]}" )
+				  opt=( "${opt[@]}" '--lock-tables=0' )
+			  fi
 			  process_dbs "$subfolder" "$prefix" "$midfix" "$extension" "$rotation" "$rotation_divisor" "$rotation_string" 0 "$db"
+			  if [ "${db}" == 'mysql' ]; then
+				  opt=( "${old_opt[@]}" )
+			  fi
 			  echo ----------------------------------------------------------------------
 			done
 		  else
@@ -1922,7 +1929,14 @@ method_backup () {
 			for db in "${CONFIG_db_names[@]}"; do
 			  echo "Weekly Backup of Database ( ${db} )"
 			  (shopt -s nullglob dotglob; f=("${CONFIG_backup_dir}/${subfolder}/${db}/${prefix}${db}_${date_stamp}_"[0-9][0-9]"h"[0-9][0-9]"m${midfix}${extension}${suffix}"); ((${#f[@]}))) && continue
+			  if [ "${db}" == 'mysql' ]; then
+				  old_opt=( "${opt[@]}" )
+				  opt=( "${opt[@]}" '--lock-tables=0' )
+			  fi
 			  process_dbs "$subfolder" "$prefix" "$midfix" "$extension" "$rotation" "$rotation_divisor" "$rotation_string" 0 "$db"
+			  if [ "${db}" == 'mysql' ]; then
+				  opt=( "${old_opt[@]}" )
+			  fi
 			  echo "----------------------------------------------------------------------"
 			done
 		  else
@@ -1950,7 +1964,14 @@ method_backup () {
 		  if [[ "${CONFIG_mysql_dump_use_separate_dirs}" = "yes" ]]; then
 			for db in "${CONFIG_db_names[@]}"; do
 			  echo "Daily Backup of Database ( ${db} )"
+			  if [ "${db}" == 'mysql' ]; then
+				  old_opt=( "${opt[@]}" )
+				  opt=( "${opt[@]}" '--lock-tables=0' )
+			  fi
 			  process_dbs "$subfolder" "$prefix" "$midfix" "$extension" "$rotation" "$rotation_divisor" "$rotation_string" 0 "$db"
+			  if [ "${db}" == 'mysql' ]; then
+				  opt=( "${old_opt[@]}" )
+			  fi
 			  echo "----------------------------------------------------------------------"
 			done
 		  else
